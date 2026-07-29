@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList , KeyboardAvoidingView, Platform } from 'react-native';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -15,6 +16,7 @@ import { ptBR, enUS } from 'date-fns/locale';
 export default function AddDiagnosisScreen() {
 
     const insets = useSafeAreaInsets();
+    const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
     const styles = getStyles(colors);
     const router = useRouter();
@@ -72,7 +74,7 @@ export default function AddDiagnosisScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -80,7 +82,7 @@ export default function AddDiagnosisScreen() {
                 <Text style={styles.headerTitle}>{id ? t('edit_diagnosis') : t('add_diagnosis')}</Text>
             </View>
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(60, keyboardHeight + 20) }]} keyboardShouldPersistTaps="handled">
                 <Text style={styles.label}>{t('condition')}</Text>
                 <TextInput placeholderTextColor={colors.textSecondary} style={styles.input} placeholder={t('eg_diabetes')} value={condition} onChangeText={setCondition} />
 
@@ -176,7 +178,7 @@ export default function AddDiagnosisScreen() {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 

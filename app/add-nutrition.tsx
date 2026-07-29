@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal , KeyboardAvoidingView, Platform } from 'react-native';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -17,6 +18,7 @@ const foodTypes: FoodEntry['type'][] = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
 export default function AddNutritionScreen() {
 
     const insets = useSafeAreaInsets();
+    const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
     const styles = getStyles(colors);
     const router = useRouter();
@@ -68,7 +70,7 @@ export default function AddNutritionScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -76,7 +78,7 @@ export default function AddNutritionScreen() {
                 <Text style={styles.headerTitle}>{id ? t('edit_food') : t('log_food')}</Text>
             </View>
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(60, keyboardHeight + 20) }]} keyboardShouldPersistTaps="handled">
                 <Text style={styles.label}>{t('meal_type')}</Text>
                 <View style={styles.typeRow}>
                     {foodTypes.map((tItem) => (
@@ -146,7 +148,7 @@ export default function AddNutritionScreen() {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 

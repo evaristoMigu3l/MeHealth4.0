@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal , KeyboardAvoidingView, Platform } from 'react-native';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ const measurementTypes = ['Blood Pressure', 'Heart Rate', 'Weight', 'BMI', 'Bloo
 export default function AddMeasurementScreen() {
 
     const insets = useSafeAreaInsets();
+    const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
     const styles = getStyles(colors);
     const router = useRouter();
@@ -56,7 +58,7 @@ export default function AddMeasurementScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -64,7 +66,7 @@ export default function AddMeasurementScreen() {
                 <Text style={styles.headerTitle}>{id ? t('edit_measurement') : t('add_measurement')}</Text>
             </View>
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(60, keyboardHeight + 20) }]} keyboardShouldPersistTaps="handled">
                 <Text style={styles.label}>{t('type')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipContainer}>
                     {measurementTypes.map((tItem) => (
@@ -155,7 +157,7 @@ export default function AddMeasurementScreen() {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 

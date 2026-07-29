@@ -22,6 +22,7 @@ export default function TrackScreen() {
         { title: t('activity'), icon: 'walk', color: '#8B5CF6', route: '/activity-log' },
         { title: t('sleep'), icon: 'moon', color: '#6366F1', route: '/sleep-log' },
         { title: t('mood'), icon: 'happy', color: '#EC4899', route: '/mood-log' },
+        { title: t('water'), icon: 'water', color: '#3B82F6', route: '/water-log' },
         { title: t('appointments'), icon: 'calendar', color: '#14B8A6', route: '/appointment-log' },
         { title: t('diagnoses'), icon: 'medical', color: '#EF4444', route: '/diagnosis-log' },
         { title: t('exams'), icon: 'document-text', color: '#3B82F6', route: '/investigation-log' },

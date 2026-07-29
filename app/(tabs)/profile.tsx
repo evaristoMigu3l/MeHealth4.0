@@ -138,17 +138,21 @@ export default function ProfileScreen() {
                         <View style={[styles.iconBox, { backgroundColor: '#EFF6FF' }]}>
                             <Ionicons name="lock-closed-outline" size={20} color="#3B82F6" />
                         </View>
-                        <Text style={styles.menuText}>{t('app_pin_lock')}</Text>
-                        <Text style={[styles.menuSub, hasPin ? { color: '#10B981' } : {}]}>{hasPin ? t('enabled') : t('off')}</Text>
-                        {hasPin ? (
-                            <TouchableOpacity onPress={handleRemovePin} style={styles.actionBtn}>
-                                <Text style={{ color: '#EF4444', fontSize: 13, fontWeight: '600' }}>{t('remove')}</Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity onPress={() => setPinStep('setup')} style={styles.actionBtn}>
-                                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>{t('set_up')}</Text>
-                            </TouchableOpacity>
-                        )}
+                        <View style={styles.menuTextContainer}>
+                            <Text style={styles.menuText}>{t('app_pin_lock')}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={[styles.menuSub, hasPin ? { color: '#10B981' } : {}]}>{hasPin ? t('enabled') : t('off')}</Text>
+                            {hasPin ? (
+                                <TouchableOpacity onPress={handleRemovePin} style={styles.actionBtn}>
+                                    <Text style={{ color: '#EF4444', fontSize: 13, fontWeight: '600' }}>{t('remove')}</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <TouchableOpacity onPress={() => setPinStep('setup')} style={styles.actionBtn}>
+                                    <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>{t('set_up')}</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
 
                     {hasPin && hasBiometric && (
@@ -156,7 +160,9 @@ export default function ProfileScreen() {
                             <View style={[styles.iconBox, { backgroundColor: '#F0FDF4' }]}>
                                 <Ionicons name="finger-print-outline" size={20} color="#10B981" />
                             </View>
-                            <Text style={styles.menuText}>{t('biometric_unlock')}</Text>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.menuText}>{t('biometric_unlock')}</Text>
+                            </View>
                             <Switch value={biometricEnabled} onValueChange={setBiometricEnabled} trackColor={{ false: colors.border, true: colors.primary }} />
                         </View>
                     )}
@@ -166,7 +172,9 @@ export default function ProfileScreen() {
                             <View style={[styles.iconBox, { backgroundColor: '#FFF7ED' }]}>
                                 <Ionicons name="lock-open-outline" size={20} color="#F97316" />
                             </View>
-                            <Text style={styles.menuText}>{t('lock_app_now')}</Text>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.menuText}>{t('lock_app_now')}</Text>
+                            </View>
                             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
                     )}
@@ -180,7 +188,9 @@ export default function ProfileScreen() {
                         <View style={[styles.iconBox, { backgroundColor: '#F3F4F6' }]}>
                             <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
                         </View>
-                        <Text style={styles.menuText}>{t('settings')}</Text>
+                        <View style={styles.menuTextContainer}>
+                            <Text style={styles.menuText}>{t('settings')}</Text>
+                        </View>
                         <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
                     </TouchableOpacity>
 
@@ -247,7 +257,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     sectionTitle: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 },
     menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
     iconBox: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-    menuText: { flex: 1, fontSize: 16, color: colors.text },
+    menuTextContainer: { flex: 1, marginRight: 12 },
+    menuText: { fontSize: 16, color: colors.text },
     menuSub: { fontSize: 13, color: colors.textSecondary, marginRight: 8 },
     actionBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
     logoutButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', padding: 16, borderRadius: 12, marginVertical: 16 },

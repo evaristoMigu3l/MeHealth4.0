@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, Switch , KeyboardAvoidingView, Platform } from 'react-native';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -15,6 +16,7 @@ import { ptBR, enUS } from 'date-fns/locale';
 export default function AddAppointmentScreen() {
 
     const insets = useSafeAreaInsets();
+    const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
     const styles = getStyles(colors);
     const router = useRouter();
@@ -102,7 +104,7 @@ export default function AddAppointmentScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -110,7 +112,7 @@ export default function AddAppointmentScreen() {
                 <Text style={styles.headerTitle}>{isEditing ? t('edit_appointment') : t('add_appointment')}</Text>
             </View>
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(60, keyboardHeight + 20) }]} keyboardShouldPersistTaps="handled">
                 <Text style={styles.label}>{t('reason')} *</Text>
                 <TextInput placeholderTextColor={colors.textSecondary} style={styles.input} placeholder={t('eg_checkup')} value={reason} onChangeText={setReason} />
 
@@ -244,7 +246,7 @@ export default function AddAppointmentScreen() {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 

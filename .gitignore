@@ -30,8 +30,12 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# Environment & secrets — never commit these
+.env
+.env.*
 .env*.local
+*.env
+*.secret
 
 # typescript
 *.tsbuildinfo
@@ -40,6 +44,24 @@ yarn-error.*
 /ios
 /android
 
-# local credentials
+# Signing & local credentials — NEVER commit
 credentials.json
 *.keystore
+
+# Build artifacts & logs — no value in git
+*.log
+*.txt
+build_log.txt
+decoded_build_log.txt
+decoded_log.txt
+npm_log.txt
+npm_out.txt
+tsc_out.txt
+tsc_out2.txt
+typescript-errors.txt
+raw_binary_log.bin
+task.md.resolved
+
+# Media files accidentally in root — keep in assets/ only
+Billie\ Eilish*.mp3
+Julia\ Michaels*.mp3

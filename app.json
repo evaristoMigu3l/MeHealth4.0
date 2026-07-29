@@ -2,7 +2,7 @@
   "expo": {
     "name": "me&health",
     "slug": "me-and-health",
-    "version": "1.0.0",
+    "version": "4.0.0",
     "scheme": "mehealth",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -48,7 +48,14 @@
         }
       ],
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow me&health to attach photos of medicines, lab results and meals to the assistant.",
+          "cameraPermission": "Allow me&health to take photos of medicines, lab results and meals for the assistant."
+        }
+      ]
     ],
     "extra": {
       "router": {},

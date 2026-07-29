@@ -502,4 +502,9 @@ export const translations: Dictionary = {
     appointment: { en: 'Appointment', pt: 'Consulta' },
     no_diagnoses_recorded: { en: 'No diagnoses recorded', pt: 'Nenhum diagnóstico registrado' },
 
+    // Water & Gamification
+    water: { en: 'Water', pt: 'Água' },
+    glasses: { en: '{count} glasses', pt: '{count} copos' },
+    add_water: { en: 'Add Water', pt: 'Adicionar Água' },
+    day_streak: { en: '{count} Day Streak', pt: '{count} Dias Seguidos' },
 };

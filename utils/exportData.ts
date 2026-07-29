@@ -61,6 +61,7 @@ const trans = (str: string, lang: 'en' | 'pt') => {
         '=== APPOINTMENTS ===': { pt: '=== CONSULTAS ===' },
         '=== EXAMS/INVESTIGATIONS ===': { pt: '=== EXAMES/INVESTIGAÇÕES ===' },
         '=== NUTRITION / FOOD ENTRIES ===': { pt: '=== NUTRIÇÃO / REFEIÇÕES ===' },
+        '=== WATER LOGS ===': { pt: '=== REGISTROS DE ÁGUA ===' },
 
         'Medications': { pt: 'Medicamentos' },
         'Symptoms': { pt: 'Sintomas' },
@@ -72,6 +73,8 @@ const trans = (str: string, lang: 'en' | 'pt') => {
         'Sleep Log': { pt: 'Log de Sono' },
         'Activities': { pt: 'Atividades' },
         'Nutrition Log': { pt: 'Log de Nutrição' },
+        'Water Log': { pt: 'Log de Água' },
+        'Amount (ml)': { pt: 'Quantidade (ml)' },
 
         'Me &amp; Health — Personal Health Report': { pt: 'Me &amp; Health — Relatório Pessoal de Saúde' },
         'Patient': { pt: 'Paciente' },
@@ -186,6 +189,14 @@ export async function exportAllHealthDataAsCSV(healthData: any, lang: 'en' | 'pt
         ));
     }
 
+    if (healthData.waterLogs?.length) {
+        sections.push('\n' + trans('=== WATER LOGS ===', lang));
+        sections.push(toCSV(
+            ['Date/Time', 'Amount (ml)'].map(h => trans(h, lang)),
+            healthData.waterLogs.map((w: any) => [w.dateTime, w.amount])
+        ));
+    }
+
     const csv = sections.join('\n');
     const fileName = `mehealth_data_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     const filePath = `${FileSystem.documentDirectory}${fileName}`;
@@ -280,6 +291,11 @@ export async function exportAllHealthDataAsPDF(healthData: any, userName: string
         ${healthData.foodEntries?.length ? section('Nutrition Log', table(
         ['Meal Type', 'Name', 'Calories', 'Date/Time', 'Notes'],
         healthData.foodEntries.map((f: any) => [trans(f.type, lang), f.name, f.calories, safeDateTime(f.dateTime), f.notes || '—'])
+    )) : ''}
+    
+        ${healthData.waterLogs?.length ? section('Water Log', table(
+        ['Date/Time', 'Amount (ml)'],
+        healthData.waterLogs.map((w: any) => [safeDateTime(w.dateTime), w.amount])
     )) : ''}
     </body></html>`;
 

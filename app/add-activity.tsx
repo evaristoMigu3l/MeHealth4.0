@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView , KeyboardAvoidingView, Platform } from 'react-native';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -13,6 +14,7 @@ const categories: Activity['category'][] = ['Basic Activities', 'Cognitive', 'Da
 export default function AddActivityScreen() {
 
     const insets = useSafeAreaInsets();
+    const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
     const styles = getStyles(colors);
     const router = useRouter();
@@ -56,7 +58,7 @@ export default function AddActivityScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -64,7 +66,7 @@ export default function AddActivityScreen() {
                 <Text style={styles.headerTitle}>{id ? t('edit') : t('add_log')}</Text>
             </View>
 
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(60, keyboardHeight + 20) }]} keyboardShouldPersistTaps="handled">
                 <Text style={styles.label}>{t('category')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipContainer}>
                     {categories.map((c) => (
@@ -104,7 +106,7 @@ export default function AddActivityScreen() {
                     <Text style={styles.buttonText}>{t('save')}</Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 

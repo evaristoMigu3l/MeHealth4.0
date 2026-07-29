@@ -9,8 +9,11 @@ import {
 import {
     Symptom, Medication, Measurement, Diagnosis, MoodLog,
     DietPlan, Investigation, Activity, SleepLog, FoodEntry,
-    Document, Appointment, HCP
+    Document, Appointment, HCP, WaterLog
 } from '../types';
+
+/** Bumped whenever the saved health data shape changes. See `migrate` below. */
+export const HEALTH_STORE_VERSION = 1;
 
 interface HealthState {
     symptoms: Symptom[];
@@ -74,6 +77,10 @@ interface HealthState {
     hcps: HCP[];
     addHCP: (h: HCP) => void;
     removeHCP: (id: string) => void;
+
+    waterLogs: WaterLog[];
+    addWaterLog: (w: WaterLog) => void;
+    removeWaterLog: (id: string) => void;
 }
 
 export const useHealthStore = create<HealthState>()(
@@ -158,10 +165,49 @@ export const useHealthStore = create<HealthState>()(
             hcps: [],
             addHCP: (h) => set((state) => ({ hcps: [...state.hcps, h] })),
             removeHCP: (id) => set((state) => ({ hcps: state.hcps.filter((h) => h.id !== id) })),
+
+            waterLogs: [],
+            addWaterLog: (w) => set((state) => ({ waterLogs: [...state.waterLogs, w] })),
+            removeWaterLog: (id) => set((state) => ({ waterLogs: state.waterLogs.filter((w) => w.id !== id) })),
         }),
         {
             name: 'health-storage',
             storage: createJSONStorage(() => AsyncStorage),
+            version: HEALTH_STORE_VERSION,
+            /**
+             * Runs when the saved data is older than HEALTH_STORE_VERSION.
+             * This is the safety net for future schema changes: it must never
+             * throw, because a failed migration would discard the whole health
+             * record. Missing arrays are restored so a new list added to the app
+             * can never crash a screen that maps over it.
+             */
+            migrate: (persisted: any, fromVersion: number) => {
+                const state = { ...(persisted || {}) };
+
+                const LISTS = [
+                    'symptoms', 'medications', 'measurements', 'diagnoses', 'moodLogs',
+                    'dietPlans', 'investigations', 'activities', 'sleepLogs', 'foodEntries',
+                    'documents', 'appointments', 'hcps', 'waterLogs',
+                ];
+
+                for (const key of LISTS) {
+                    if (!Array.isArray(state[key])) state[key] = [];
+                }
+
+                // v0 (no version field) -> v1: every record needs an id, because
+                // the assistant now corrects and deletes records by id.
+                if (fromVersion < 1) {
+                    for (const key of LISTS) {
+                        state[key] = state[key].map((record: any, index: number) => (
+                            record && typeof record === 'object' && !record.id
+                                ? { ...record, id: `${key}-${index}-${Date.now()}` }
+                                : record
+                        ));
+                    }
+                }
+
+                return state;
+            },
         }
     )
 );

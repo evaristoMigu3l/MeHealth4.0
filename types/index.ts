@@ -7,6 +7,9 @@ export interface UserProfile {
     gender: 'Male' | 'Female' | 'Other';
     ethnicity: string;
     avatarUri?: string;
+    lastActiveDate?: string | null;
+    currentStreak?: number;
+    longestStreak?: number;
 }
 
 export interface Symptom {
@@ -156,4 +159,10 @@ export interface AppSettings {
     reminderTime: string;
     darkMode: boolean;
     units: 'metric' | 'imperial';
+}
+
+export interface WaterLog {
+    id: string;
+    dateTime: string;
+    amount: number; // typically in ml
 }

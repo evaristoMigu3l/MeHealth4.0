@@ -14,10 +14,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import EditProfileModal, { EditProfileForm } from '../components/EditProfileModal';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAiStore } from '../stores/useAiStore';
 
 export default function SettingsScreen() {
 
     const insets = useSafeAreaInsets();
+    const aiPending = useAiStore((s) => s.pending);
     const { colors } = useAppTheme();
     const styles = getStyles(colors);
     const router = useRouter();
@@ -159,6 +161,37 @@ export default function SettingsScreen() {
                             <Text style={{ color: colors.surface, fontWeight: '600' }}>{t('send_test')} 🔔</Text>
                         </TouchableOpacity>
                     </View>
+                </View>
+
+                <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>AI ASSISTANT</Text>
+
+                    <TouchableOpacity style={[styles.settingRow, { borderBottomColor: colors.border }]} onPress={() => router.push('/ai-chat')}>
+                        <View style={styles.settingInfo}>
+                            <Ionicons name="sparkles-outline" size={22} color={colors.textSecondary} />
+                            <Text style={[styles.settingText, { color: colors.text }]}>Chat and log with AI</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.settingRow, { borderBottomColor: colors.border }]} onPress={() => router.push('/ai-review')}>
+                        <View style={styles.settingInfo}>
+                            <Ionicons name="clipboard-outline" size={22} color={colors.textSecondary} />
+                            <Text style={[styles.settingText, { color: colors.text }]}>Review AI entries</Text>
+                        </View>
+                        <View style={styles.settingInfo}>
+                            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>{aiPending.length}</Text>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.settingRow, { borderBottomColor: colors.border }]} onPress={() => router.push('/ai-settings')}>
+                        <View style={styles.settingInfo}>
+                            <Ionicons name="key-outline" size={22} color={colors.textSecondary} />
+                            <Text style={[styles.settingText, { color: colors.text }]}>API key and model</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
                 </View>
 
                 <View style={[styles.section, { backgroundColor: colors.surface }]}>

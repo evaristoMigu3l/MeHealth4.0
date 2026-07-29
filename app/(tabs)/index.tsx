@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUserStore } from '../../stores/useUserStore';
 import { useHealthStore } from '../../stores/useHealthStore';
+import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '../../hooks/useTranslation';
 
@@ -16,7 +17,7 @@ export default function HomeScreen() {
     const { colors } = useAppTheme();
     const styles = getStyles(colors);
     const router = useRouter();
-    const { profile } = useUserStore();
+    const { profile, updateStreak, gamification } = useUserStore();
     const { t } = useTranslation();
     const {
         symptoms,
@@ -26,8 +27,14 @@ export default function HomeScreen() {
         sleepLogs,
         activities,
         foodEntries,
-        appointments
+        appointments,
+        waterLogs,
+        addWaterLog
     } = useHealthStore();
+
+    useEffect(() => {
+        updateStreak();
+    }, [updateStreak]);
 
     const currentMedications = useMemo(() => {
         const now = new Date().getTime();
@@ -38,11 +45,22 @@ export default function HomeScreen() {
     const totalSleep = sleepLogs.reduce((sum, s) => sum + s.hours, 0);
     const totalActivity = activities.reduce((sum, a) => sum + a.durationHours * 60 + a.durationMinutes, 0);
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayWater = waterLogs?.filter(w => w.dateTime.startsWith(todayStr)).reduce((sum, w) => sum + w.amount, 0) || 0;
+    const todayGlasses = Math.floor(todayWater / 250);
+
     return (
         <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
-                    <Text style={styles.greeting}>{t('greeting', { name: profile?.name || t('guest') })}</Text>
+                    <View style={styles.headerRow}>
+                        <Text style={styles.greeting}>{t('greeting', { name: profile?.name || t('guest') })}</Text>
+                        {gamification?.currentStreak && gamification.currentStreak > 0 ? (
+                            <View style={styles.streakBadge}>
+                                <Text style={styles.streakText}>🔥 {t('day_streak', { count: gamification.currentStreak })}</Text>
+                            </View>
+                        ) : null}
+                    </View>
                     <Text style={styles.subtitle}>{t('health_overview')}</Text>
                 </View>
 
@@ -54,6 +72,11 @@ export default function HomeScreen() {
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>{t('quick_actions')}</Text>
+                    <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/ai-chat')}>
+                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(99, 102, 241, 0.15)' }]}><Ionicons name="sparkles" size={24} color="#6366F1" /></View>
+                        <View style={styles.actionContent}><Text style={styles.actionTitle}>Log with AI</Text><Text style={styles.actionSubtitle}>Just chat, it fills everything in</Text></View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/add-symptom')}>
                         <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}><Ionicons name="pulse" size={24} color="#EF4444" /></View>
                         <View style={styles.actionContent}><Text style={styles.actionTitle}>{t('log_symptoms')}</Text><Text style={styles.actionSubtitle}>{t('track_feeling')}</Text></View>
@@ -65,6 +88,29 @@ export default function HomeScreen() {
                         <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                     </TouchableOpacity>
                 </View>
+
+                {/* Hydration Widget */}
+                <TouchableOpacity 
+                    style={[styles.section, styles.hydrationCard]} 
+                    activeOpacity={0.8}
+                    onPress={() => router.push('/water-log')}
+                >
+                    <View style={styles.hydrationLeft}>
+                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.15)', marginRight: 12 }]}>
+                            <Ionicons name="water" size={24} color="#3B82F6" />
+                        </View>
+                        <View>
+                            <Text style={styles.hydrationTitle}>{t('water')}</Text>
+                            <Text style={styles.hydrationSubtitle}>{t('glasses', { count: todayGlasses })} ({todayGlasses * 250} ml)</Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity 
+                        style={styles.addWaterBtn}
+                        onPress={() => router.push('/add-water')}
+                    >
+                        <Text style={styles.addWaterText}>+ {t('add_water')}</Text>
+                    </TouchableOpacity>
+                </TouchableOpacity>
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>{t('today_summary')}</Text>
@@ -160,6 +206,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     scrollView: { flex: 1 },
     scrollContent: { padding: 20 },
     header: { marginBottom: 20 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    streakBadge: { backgroundColor: 'rgba(245, 158, 11, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    streakText: { fontSize: 13, fontWeight: 'bold', color: '#F59E0B' },
     greeting: { fontSize: 28, fontWeight: 'bold', color: colors.text },
     subtitle: { fontSize: 16, color: colors.textSecondary, marginTop: 4 },
     statsRow: { flexDirection: 'row', marginBottom: 20 },
@@ -173,6 +222,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     actionContent: { flex: 1 },
     actionTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
     actionSubtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+    hydrationCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surface, padding: 16, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+    hydrationLeft: { flexDirection: 'row', alignItems: 'center' },
+    hydrationTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
+    hydrationSubtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+    addWaterBtn: { backgroundColor: '#3B82F6', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+    addWaterText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
     summaryGrid: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 12, padding: 16, justifyContent: 'space-around', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
     summaryItem: { alignItems: 'center' },
     summaryValue: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginTop: 4 },
