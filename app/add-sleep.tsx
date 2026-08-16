@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal , KeyboardAvoidingView, Platform } from 'react-native';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -20,7 +20,7 @@ export default function AddSleepScreen() {
     const insets = useSafeAreaInsets();
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { t } = useTranslation();
@@ -94,7 +94,7 @@ export default function AddSleepScreen() {
                 </View>
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, !quality && styles.buttonDisabled]} onPress={handleSubmit} disabled={!quality}>
                     <Text style={styles.buttonText}>{id ? t('update') : t('save')}</Text>
                 </TouchableOpacity>

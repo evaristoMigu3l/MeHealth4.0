@@ -1,29 +1,15 @@
-import { useEffect, useState } from 'react';
-import { Keyboard, KeyboardEvent, Platform } from 'react-native';
+import { useKeyboardLayout } from './useKeyboardLayout';
 
-export function useKeyboardHeight() {
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-    useEffect(() => {
-        const onKeyboardDidShow = (e: KeyboardEvent) => {
-            setKeyboardHeight(e.endCoordinates.height);
-        };
-
-        const onKeyboardDidHide = () => {
-            setKeyboardHeight(0);
-        };
-
-        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-        const showSubscription = Keyboard.addListener(showEvent, onKeyboardDidShow);
-        const hideSubscription = Keyboard.addListener(hideEvent, onKeyboardDidHide);
-
-        return () => {
-            showSubscription.remove();
-            hideSubscription.remove();
-        };
-    }, []);
-
-    return keyboardHeight;
+/**
+ * Bottom spacing a screen still has to add for the keyboard.
+ *
+ * Kept under the old name so existing screens keep working, but it now returns
+ * the *effective* offset instead of the raw keyboard height: when Android
+ * already shrank the window there is nothing left to pad, and padding anyway
+ * was pushing form content out of view.
+ *
+ * Use `useKeyboardLayout()` if you need the raw height or the visibility flag.
+ */
+export function useKeyboardHeight(): number {
+    return useKeyboardLayout().keyboardOffset;
 }

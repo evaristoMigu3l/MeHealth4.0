@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, Switch , KeyboardAvoidingView, Platform } from 'react-native';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -18,7 +18,7 @@ export default function AddAppointmentScreen() {
     const insets = useSafeAreaInsets();
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const params = useLocalSearchParams();
     const { t } = useTranslation();
@@ -175,7 +175,7 @@ export default function AddAppointmentScreen() {
                 )}
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, !reason.trim() && styles.buttonDisabled]} onPress={handleSubmit} disabled={!reason.trim()}>
                     <Text style={styles.buttonText}>{isEditing ? t('update') : t('save')}</Text>
                 </TouchableOpacity>

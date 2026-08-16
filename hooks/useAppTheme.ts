@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { useThemeStore } from '../stores/useThemeStore';
 
@@ -31,18 +32,28 @@ const darkColors: ThemeColors = {
     card: '#1E293B',
 };
 
+/**
+ * App colours for the active theme.
+ *
+ * The returned object is memoized: it keeps the SAME identity between renders
+ * as long as the theme does not change. Screens use `colors` as the dependency
+ * of their `useMemo(() => getStyles(colors), [colors])`, so a stable identity
+ * is what stops every screen from rebuilding its stylesheet (and re-mounting
+ * its inputs) on every single keystroke.
+ */
 export function useAppTheme() {
-    const { themePreference } = useThemeStore();
+    const themePreference = useThemeStore((state) => state.themePreference);
     const systemColorScheme = useColorScheme();
 
     const isDark =
         themePreference === 'dark' ||
         (themePreference === 'system' && systemColorScheme === 'dark');
 
-    const colors = isDark ? darkColors : lightColors;
-
-    return {
-        isDark,
-        colors,
-    };
+    return useMemo(
+        () => ({
+            isDark,
+            colors: isDark ? darkColors : lightColors,
+        }),
+        [isDark],
+    );
 }

@@ -1,13 +1,24 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useKeyboardLayout } from '../hooks/useKeyboardLayout';
 import { useRouter } from 'expo-router';
 import { useUserStore } from '../stores/useUserStore';
 
+/**
+ * First-run profile screen.
+ *
+ * Same fix as the auth screen: no <KeyboardAvoidingView behavior="height"> on
+ * Android (it fights the window resize and makes the fields strobe). The
+ * leftover keyboard space is added as padding instead.
+ */
 export default function OnboardingScreen() {
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
+    const insets = useSafeAreaInsets();
+    const { keyboardOffset, isKeyboardVisible } = useKeyboardLayout();
     const setProfile = useUserStore((state) => state.setProfile);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -18,9 +29,19 @@ export default function OnboardingScreen() {
         router.replace('/(tabs)');
     };
 
+    const bottomSpace = isKeyboardVisible ? keyboardOffset + 16 : Math.max(insets.bottom, 24);
+
     return (
-        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <View style={styles.content}>
+        <View style={styles.container}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={[styles.content, { paddingTop: insets.top + 40 }]}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="none"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                overScrollMode="never"
+            >
                 <Text style={styles.title}>Welcome!</Text>
                 <Text style={styles.subtitle}>Let's set up your health profile</Text>
 
@@ -30,6 +51,7 @@ export default function OnboardingScreen() {
                     placeholder="Enter your name"
                     value={name}
                     onChangeText={setName}
+                    autoCorrect={false}
                 />
 
                 <Text style={styles.label}>Email</Text>
@@ -39,10 +61,12 @@ export default function OnboardingScreen() {
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
                 />
-            </View>
+            </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: bottomSpace }]}>
                 <TouchableOpacity
                     style={[styles.button, !name.trim() && styles.buttonDisabled]}
                     onPress={handleSubmit}
@@ -51,7 +75,7 @@ export default function OnboardingScreen() {
                     <Text style={styles.buttonText}>Continue</Text>
                 </TouchableOpacity>
             </View>
-        </KeyboardAvoidingView>
+        </View>
     );
 }
 
@@ -60,10 +84,12 @@ const getStyles = (colors: any) => StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
-    content: {
+    scrollView: {
         flex: 1,
+    },
+    content: {
+        flexGrow: 1,
         padding: 24,
-        paddingTop: 60,
     },
     title: {
         fontSize: 28,
@@ -93,8 +119,8 @@ const getStyles = (colors: any) => StyleSheet.create({
         color: colors.text,
     },
     footer: {
-        padding: 24,
-        paddingBottom: 40,
+        paddingHorizontal: 24,
+        paddingTop: 12,
     },
     button: {
         backgroundColor: '#3B82F6',

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator, Alert, FlatList, Image, Keyboard, Linking, Platform, StyleSheet,
     Text, TextInput, TouchableOpacity, View,
@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { useKeyboardOffset } from '../hooks/useKeyboardOffset';
+import { useKeyboardLayout } from '../hooks/useKeyboardLayout';
 import { useAiStore } from '../stores/useAiStore';
 import { hasApiKey } from '../utils/ai/secrets';
 import { runAgentTurn } from '../utils/ai/agent';
@@ -26,9 +26,9 @@ const SUGGESTIONS = [
 
 export default function AiChatScreen() {
     const insets = useSafeAreaInsets();
-    const { keyboardOffset, isKeyboardVisible } = useKeyboardOffset();
+    const { keyboardOffset, isKeyboardVisible } = useKeyboardLayout();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const listRef = useRef<FlatList<ChatBubble>>(null);
 
@@ -48,9 +48,9 @@ export default function AiChatScreen() {
         hasApiKey().then(setHasKey);
     }, [setHasKey]);
 
-    const scrollToEnd = () => {
+    const scrollToEnd = useCallback(() => {
         requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-    };
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(scrollToEnd, 140);
@@ -153,7 +153,7 @@ export default function AiChatScreen() {
         });
     }
 
-    function renderBubble({ item }: { item: ChatBubble }) {
+    const renderBubble = useCallback(({ item }: { item: ChatBubble }) => {
         const isUser = item.role === 'user';
         const isError = item.role === 'error';
         const textColor = isUser ? '#FFFFFF' : isError ? '#B91C1C' : colors.text;
@@ -225,7 +225,7 @@ export default function AiChatScreen() {
                 </View>
             </View>
         );
-    }
+    }, [colors, styles]);
 
     // The whole screen shifts up by exactly the part of the keyboard that the
     // window did not already absorb, so the input is always visible in Expo Go
@@ -233,6 +233,11 @@ export default function AiChatScreen() {
     const bottomPadding = isKeyboardVisible
         ? keyboardOffset + 8
         : Math.max(insets.bottom, 10);
+
+    const listContentStyle = useMemo(
+        () => [styles.listContent, { paddingBottom: 12 }],
+        [styles],
+    );
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -284,11 +289,12 @@ export default function AiChatScreen() {
                 data={bubbles}
                 keyExtractor={(item) => item.id}
                 renderItem={renderBubble}
-                style={{ flex: 1 }}
-                contentContainerStyle={styles.listContent}
+                style={styles.list}
+                contentContainerStyle={listContentStyle}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 onContentSizeChange={scrollToEnd}
+                removeClippedSubviews={false}
                 ListEmptyComponent={
                     <View style={styles.empty}>
                         <Ionicons name="sparkles-outline" size={40} color={colors.primary} />
@@ -414,7 +420,8 @@ const getStyles = (colors: any) => StyleSheet.create({
         backgroundColor: '#FEF3C7',
     },
     warnText: { flex: 1, color: '#92400E', fontSize: 12 },
-    listContent: { padding: 16, paddingBottom: 16 },
+    list: { flex: 1, minHeight: 0 },
+    listContent: { padding: 16, paddingBottom: 16, flexGrow: 1 },
     bubbleImage: {
         width: '100%', height: 170, borderRadius: 12, marginBottom: 10,
         backgroundColor: colors.border,

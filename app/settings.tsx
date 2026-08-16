@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Switch, ScrollView, Modal, FlatList, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,13 +15,16 @@ import * as FileSystem from 'expo-file-system/legacy';
 import EditProfileModal, { EditProfileForm } from '../components/EditProfileModal';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAiStore } from '../stores/useAiStore';
+import { useCloudStore } from '../stores/useCloudStore';
+import { signOutAndReset } from '../utils/supabase/syncEngine';
+import { restoreBackupIntoStores } from '../utils/supabase/backupRestore';
 
 export default function SettingsScreen() {
 
     const insets = useSafeAreaInsets();
     const aiPending = useAiStore((s) => s.pending);
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { t } = useTranslation();
     const [notifications, setNotifications] = useState(true);
@@ -36,6 +39,34 @@ export default function SettingsScreen() {
 
     const [soundModalVisible, setSoundModalVisible] = useState(false);
     const [previewingSound, setPreviewingSound] = useState<string | null>(null);
+    const { authStatus, userEmail, syncStatus, lastSyncedAt, pendingCount, lastError } = useCloudStore();
+
+    function handleSignOut() {
+        Alert.alert(
+            t('sign_out'),
+            t('sign_out_confirm'),
+            [
+                { text: t('cancel'), style: 'cancel' },
+                {
+                    text: t('sign_out'), style: 'destructive',
+                    onPress: () => { void signOutAndReset(); }
+                }
+            ]
+        );
+    }
+
+    const syncStatusLabel =
+        syncStatus === 'synced' ? t('sync_status_synced')
+            : syncStatus === 'syncing' ? t('sync_status_syncing')
+                : syncStatus === 'loading' ? t('sync_status_loading')
+                    : syncStatus === 'offline' ? t('sync_status_offline')
+                        : syncStatus === 'error' ? t('sync_status_error')
+                            : '';
+    const syncStatusColor =
+        syncStatus === 'synced' ? '#10B981'
+            : syncStatus === 'error' ? '#EF4444'
+                : syncStatus === 'offline' ? '#F59E0B'
+                    : colors.textSecondary;
     const sounds: { label: string, value: NotificationSound, file?: any }[] = [
         { label: 'Default OS Sound', value: 'default' },
         { label: '🔔 Bell', value: 'bell.ogg', file: require('../assets/sounds/bell.ogg') },
@@ -225,6 +256,58 @@ export default function SettingsScreen() {
                 </View>
 
                 <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('cloud_backup_title')}</Text>
+
+                    {/* Account / sync status row */}
+                    <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
+                        <View style={styles.settingInfo}>
+                            <View style={[styles.cloudIconWrap, { backgroundColor: authStatus === 'signedIn' ? 'rgba(16,185,129,0.12)' : colors.background }]}>
+                                <Ionicons
+                                    name={authStatus === 'signedIn' ? 'cloud-done-outline' : 'cloud-outline'}
+                                    size={20}
+                                    color={authStatus === 'signedIn' ? '#10B981' : colors.textSecondary}
+                                />
+                            </View>
+                            <View style={{ marginLeft: 12, flex: 1 }}>
+                                <Text style={[styles.settingText, { color: colors.text, marginLeft: 0 }]} numberOfLines={1}>
+                                    {authStatus === 'signedIn' ? (userEmail || t('signed_in_as')) : t('not_signed_in')}
+                                </Text>
+                                {authStatus === 'signedIn' && syncStatusLabel ? (
+                                    <Text style={{ color: syncStatusColor, fontSize: 13, marginTop: 2 }}>
+                                        {syncStatusLabel}
+                                        {pendingCount > 0 ? ` · ${t('pending_changes').replace('{count}', String(pendingCount))}` : ''}
+                                    </Text>
+                                ) : null}
+                                {lastError && syncStatus === 'error' ? (
+                                    <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 2 }} numberOfLines={2}>{lastError}</Text>
+                                ) : null}
+                                {lastSyncedAt && syncStatus === 'synced' ? (
+                                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                                        {t('last_synced')}: {new Date(lastSyncedAt).toLocaleString()}
+                                    </Text>
+                                ) : null}
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Sign out — full-width destructive button, only when signed in */}
+                    {authStatus === 'signedIn' ? (
+                        <TouchableOpacity
+                            style={[styles.signOutButton, { borderColor: 'rgba(239,68,68,0.35)' }]}
+                            onPress={handleSignOut}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+                            <Text style={styles.signOutText}>{t('sign_out')}</Text>
+                        </TouchableOpacity>
+                    ) : null}
+
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, paddingVertical: 12, lineHeight: 18 }}>
+                        {t('cloud_backup_desc')}
+                    </Text>
+                </View>
+
+                <View style={[styles.section, { backgroundColor: colors.surface }]}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{t('data_export')}</Text>
 
                     <TouchableOpacity style={[styles.settingRow, { borderBottomColor: colors.border }]} onPress={async () => {
@@ -283,16 +366,21 @@ export default function SettingsScreen() {
                             }
                             Alert.alert(
                                 'Restore Backup',
-                                `This will replace ALL your current data with the backup from ${new Date(parsed.exportedAt).toLocaleDateString()}. Continue?`,
+                                `This will merge the backup from ${new Date(parsed.exportedAt).toLocaleDateString()} into your current data (records with the same ID are replaced by the backup copy) and sync everything to your cloud account. Continue?`,
                                 [
                                     { text: 'Cancel', style: 'cancel' },
                                     {
                                         text: 'Restore', style: 'destructive',
                                         onPress: () => {
-                                            // Restore health data by calling Zustand setState directly
-                                            useHealthStore.setState(parsed.health);
-                                            if (parsed.user) useUserStore.setState(parsed.user);
-                                            Alert.alert('✅ Restored', 'Your data has been restored successfully.');
+                                            try {
+                                                const result = restoreBackupIntoStores(parsed);
+                                                Alert.alert(
+                                                    '✅ Restored',
+                                                    `${result.recordCount} records restored. They are being synced to your cloud backup.`
+                                                );
+                                            } catch (err: any) {
+                                                Alert.alert('Error', err?.message || 'Could not restore the backup.');
+                                            }
                                         }
                                     }
                                 ]
@@ -406,6 +494,18 @@ const getStyles = (colors: any) => StyleSheet.create({
     unitButtonActive: { backgroundColor: colors.surface },
     unitText: { fontSize: 14, color: colors.textSecondary },
     unitTextActive: { color: colors.text, fontWeight: '600' },
+    cloudIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    signOutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingVertical: 12,
+        marginTop: 14,
+        gap: 8,
+    },
+    signOutText: { color: '#EF4444', fontSize: 15, fontWeight: '600' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Alert, FlatList, Keyboard, Modal, Pressable, ScrollView, StyleSheet,
     Text, TextInput, TouchableOpacity, View, useWindowDimensions,
@@ -35,7 +35,7 @@ const LONG_FIELDS = ['notes', 'treatment', 'result', 'reason'];
 export default function AiReviewScreen() {
     const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { keyboardOffset, isKeyboardVisible } = useKeyboardOffset();
     const { height: windowHeight } = useWindowDimensions();

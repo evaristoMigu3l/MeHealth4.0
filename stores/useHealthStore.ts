@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist, StateStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     scheduleMedicationReminder,
     scheduleAppointmentReminder,
@@ -11,9 +9,21 @@ import {
     DietPlan, Investigation, Activity, SleepLog, FoodEntry,
     Document, Appointment, HCP, WaterLog
 } from '../types';
+import { emitRecordChange, isHydratingFromCloud } from '../utils/supabase/syncBridge';
 
-/** Bumped whenever the saved health data shape changes. See `migrate` below. */
-export const HEALTH_STORE_VERSION = 1;
+/**
+ * Health data store.
+ *
+ * Persistence architecture (v2 — cloud-first):
+ *  - Supabase is the source of truth for all health records.
+ *  - The sync engine hydrates this store from Supabase after sign-in.
+ *  - Every mutation below is applied locally first (instant UI), then
+ *    emitted through the sync bridge; the sync engine queues it and
+ *    pushes it to Supabase (with offline retry).
+ *  - The old AsyncStorage `persist` middleware was removed. Legacy local
+ *    data is rescued once by `utils/supabase/legacyMigration.ts`, which
+ *    reads the old `health-storage` key directly.
+ */
 
 interface HealthState {
     symptoms: Symptom[];
@@ -83,131 +93,107 @@ interface HealthState {
     removeWaterLog: (id: string) => void;
 }
 
+/** Emits an upsert unless we are hydrating from the cloud right now. */
+function emitUpsert(collection: Parameters<typeof emitRecordChange>[0]['collection'], record: { id: string }) {
+    if (isHydratingFromCloud()) return;
+    emitRecordChange({ collection, kind: 'upsert', record: record as any });
+}
+
+function emitDelete(collection: Parameters<typeof emitRecordChange>[0]['collection'], id: string) {
+    if (isHydratingFromCloud()) return;
+    emitRecordChange({ collection, kind: 'delete', record: { id } });
+}
+
 export const useHealthStore = create<HealthState>()(
-    persist(
-        (set) => ({
-            symptoms: [],
-            addSymptom: (s) => set((state) => ({ symptoms: [...state.symptoms, s] })),
-            updateSymptom: (updated) => set((state) => ({ symptoms: state.symptoms.map((s) => (s.id === updated.id ? updated : s)) })),
-            removeSymptom: (id) => set((state) => ({ symptoms: state.symptoms.filter((s) => s.id !== id) })),
+    (set) => ({
+        symptoms: [],
+        addSymptom: (s) => { set((state) => ({ symptoms: [...state.symptoms, s] })); emitUpsert('symptoms', s); },
+        updateSymptom: (updated) => { set((state) => ({ symptoms: state.symptoms.map((s) => (s.id === updated.id ? updated : s)) })); emitUpsert('symptoms', updated); },
+        removeSymptom: (id) => { set((state) => ({ symptoms: state.symptoms.filter((s) => s.id !== id) })); emitDelete('symptoms', id); },
 
-            medications: [],
-            addMedication: (m) => {
-                scheduleMedicationReminder(m);
-                set((state) => ({ medications: [...state.medications, m] }));
-            },
-            updateMedication: (updated) => {
-                scheduleMedicationReminder(updated);
-                set((state) => ({ medications: state.medications.map((m) => (m.id === updated.id ? updated : m)) }));
-            },
-            removeMedication: (id) => {
-                cancelNotification(id, 'med');
-                set((state) => ({ medications: state.medications.filter((m) => m.id !== id) }));
-            },
+        medications: [],
+        addMedication: (m) => {
+            scheduleMedicationReminder(m);
+            set((state) => ({ medications: [...state.medications, m] }));
+            emitUpsert('medications', m);
+        },
+        updateMedication: (updated) => {
+            scheduleMedicationReminder(updated);
+            set((state) => ({ medications: state.medications.map((m) => (m.id === updated.id ? updated : m)) }));
+            emitUpsert('medications', updated);
+        },
+        removeMedication: (id) => {
+            cancelNotification(id, 'med');
+            set((state) => ({ medications: state.medications.filter((m) => m.id !== id) }));
+            emitDelete('medications', id);
+        },
 
-            measurements: [],
-            addMeasurement: (m) => set((state) => ({ measurements: [...state.measurements, m] })),
-            updateMeasurement: (updated) => set((state) => ({ measurements: state.measurements.map((m) => (m.id === updated.id ? updated : m)) })),
-            removeMeasurement: (id) => set((state) => ({ measurements: state.measurements.filter((m) => m.id !== id) })),
+        measurements: [],
+        addMeasurement: (m) => { set((state) => ({ measurements: [...state.measurements, m] })); emitUpsert('measurements', m); },
+        updateMeasurement: (updated) => { set((state) => ({ measurements: state.measurements.map((m) => (m.id === updated.id ? updated : m)) })); emitUpsert('measurements', updated); },
+        removeMeasurement: (id) => { set((state) => ({ measurements: state.measurements.filter((m) => m.id !== id) })); emitDelete('measurements', id); },
 
-            diagnoses: [],
-            addDiagnosis: (d) => set((state) => ({ diagnoses: [...state.diagnoses, d] })),
-            updateDiagnosis: (updated) => set((state) => ({ diagnoses: state.diagnoses.map((d) => (d.id === updated.id ? updated : d)) })),
-            removeDiagnosis: (id) => set((state) => ({ diagnoses: state.diagnoses.filter((d) => d.id !== id) })),
+        diagnoses: [],
+        addDiagnosis: (d) => { set((state) => ({ diagnoses: [...state.diagnoses, d] })); emitUpsert('diagnoses', d); },
+        updateDiagnosis: (updated) => { set((state) => ({ diagnoses: state.diagnoses.map((d) => (d.id === updated.id ? updated : d)) })); emitUpsert('diagnoses', updated); },
+        removeDiagnosis: (id) => { set((state) => ({ diagnoses: state.diagnoses.filter((d) => d.id !== id) })); emitDelete('diagnoses', id); },
 
-            moodLogs: [],
-            addMoodLog: (m) => set((state) => ({ moodLogs: [...state.moodLogs, m] })),
-            updateMoodLog: (updated) => set((state) => ({ moodLogs: state.moodLogs.map((m) => (m.id === updated.id ? updated : m)) })),
-            removeMoodLog: (id) => set((state) => ({ moodLogs: state.moodLogs.filter((m) => m.id !== id) })),
+        moodLogs: [],
+        addMoodLog: (m) => { set((state) => ({ moodLogs: [...state.moodLogs, m] })); emitUpsert('moodLogs', m); },
+        updateMoodLog: (updated) => { set((state) => ({ moodLogs: state.moodLogs.map((m) => (m.id === updated.id ? updated : m)) })); emitUpsert('moodLogs', updated); },
+        removeMoodLog: (id) => { set((state) => ({ moodLogs: state.moodLogs.filter((m) => m.id !== id) })); emitDelete('moodLogs', id); },
 
-            dietPlans: [],
-            addDietPlan: (d) => set((state) => ({ dietPlans: [...state.dietPlans, d] })),
-            removeDietPlan: (id) => set((state) => ({ dietPlans: state.dietPlans.filter((d) => d.id !== id) })),
+        dietPlans: [],
+        addDietPlan: (d) => { set((state) => ({ dietPlans: [...state.dietPlans, d] })); emitUpsert('dietPlans', d); },
+        removeDietPlan: (id) => { set((state) => ({ dietPlans: state.dietPlans.filter((d) => d.id !== id) })); emitDelete('dietPlans', id); },
 
-            investigations: [],
-            addInvestigation: (i) => set((state) => ({ investigations: [...state.investigations, i] })),
-            updateInvestigation: (updated) => set((state) => ({ investigations: state.investigations.map((i) => (i.id === updated.id ? updated : i)) })),
-            removeInvestigation: (id) => set((state) => ({ investigations: state.investigations.filter((i) => i.id !== id) })),
+        investigations: [],
+        addInvestigation: (i) => { set((state) => ({ investigations: [...state.investigations, i] })); emitUpsert('investigations', i); },
+        updateInvestigation: (updated) => { set((state) => ({ investigations: state.investigations.map((i) => (i.id === updated.id ? updated : i)) })); emitUpsert('investigations', updated); },
+        removeInvestigation: (id) => { set((state) => ({ investigations: state.investigations.filter((i) => i.id !== id) })); emitDelete('investigations', id); },
 
-            activities: [],
-            addActivity: (a) => set((state) => ({ activities: [...state.activities, a] })),
-            updateActivity: (updated) => set((state) => ({ activities: state.activities.map((a) => (a.id === updated.id ? updated : a)) })),
-            removeActivity: (id) => set((state) => ({ activities: state.activities.filter((a) => a.id !== id) })),
+        activities: [],
+        addActivity: (a) => { set((state) => ({ activities: [...state.activities, a] })); emitUpsert('activities', a); },
+        updateActivity: (updated) => { set((state) => ({ activities: state.activities.map((a) => (a.id === updated.id ? updated : a)) })); emitUpsert('activities', updated); },
+        removeActivity: (id) => { set((state) => ({ activities: state.activities.filter((a) => a.id !== id) })); emitDelete('activities', id); },
 
-            sleepLogs: [],
-            addSleepLog: (s) => set((state) => ({ sleepLogs: [...state.sleepLogs, s] })),
-            updateSleepLog: (updated) => set((state) => ({ sleepLogs: state.sleepLogs.map((s) => (s.id === updated.id ? updated : s)) })),
-            removeSleepLog: (id) => set((state) => ({ sleepLogs: state.sleepLogs.filter((s) => s.id !== id) })),
+        sleepLogs: [],
+        addSleepLog: (s) => { set((state) => ({ sleepLogs: [...state.sleepLogs, s] })); emitUpsert('sleepLogs', s); },
+        updateSleepLog: (updated) => { set((state) => ({ sleepLogs: state.sleepLogs.map((s) => (s.id === updated.id ? updated : s)) })); emitUpsert('sleepLogs', updated); },
+        removeSleepLog: (id) => { set((state) => ({ sleepLogs: state.sleepLogs.filter((s) => s.id !== id) })); emitDelete('sleepLogs', id); },
 
-            foodEntries: [],
-            addFoodEntry: (f) => set((state) => ({ foodEntries: [...state.foodEntries, f] })),
-            updateFoodEntry: (updated) => set((state) => ({ foodEntries: state.foodEntries.map((f) => (f.id === updated.id ? updated : f)) })),
-            removeFoodEntry: (id) => set((state) => ({ foodEntries: state.foodEntries.filter((f) => f.id !== id) })),
+        foodEntries: [],
+        addFoodEntry: (f) => { set((state) => ({ foodEntries: [...state.foodEntries, f] })); emitUpsert('foodEntries', f); },
+        updateFoodEntry: (updated) => { set((state) => ({ foodEntries: state.foodEntries.map((f) => (f.id === updated.id ? updated : f)) })); emitUpsert('foodEntries', updated); },
+        removeFoodEntry: (id) => { set((state) => ({ foodEntries: state.foodEntries.filter((f) => f.id !== id) })); emitDelete('foodEntries', id); },
 
-            documents: [],
-            addDocument: (d) => set((state) => ({ documents: [...state.documents, d] })),
-            removeDocument: (id) => set((state) => ({ documents: state.documents.filter((d) => d.id !== id) })),
+        documents: [],
+        addDocument: (d) => { set((state) => ({ documents: [...state.documents, d] })); emitUpsert('documents', d); },
+        removeDocument: (id) => { set((state) => ({ documents: state.documents.filter((d) => d.id !== id) })); emitDelete('documents', id); },
 
-            appointments: [],
-            addAppointment: (a) => {
-                scheduleAppointmentReminder(a);
-                set((state) => ({ appointments: [...state.appointments, a] }));
-            },
-            updateAppointment: (updated) => {
-                scheduleAppointmentReminder(updated);
-                set((state) => ({ appointments: state.appointments.map((a) => (a.id === updated.id ? updated : a)) }));
-            },
-            removeAppointment: (id) => {
-                cancelNotification(id, 'appt');
-                set((state) => ({ appointments: state.appointments.filter((a) => a.id !== id) }));
-            },
+        appointments: [],
+        addAppointment: (a) => {
+            scheduleAppointmentReminder(a);
+            set((state) => ({ appointments: [...state.appointments, a] }));
+            emitUpsert('appointments', a);
+        },
+        updateAppointment: (updated) => {
+            scheduleAppointmentReminder(updated);
+            set((state) => ({ appointments: state.appointments.map((a) => (a.id === updated.id ? updated : a)) }));
+            emitUpsert('appointments', updated);
+        },
+        removeAppointment: (id) => {
+            cancelNotification(id, 'appt');
+            set((state) => ({ appointments: state.appointments.filter((a) => a.id !== id) }));
+            emitDelete('appointments', id);
+        },
 
-            hcps: [],
-            addHCP: (h) => set((state) => ({ hcps: [...state.hcps, h] })),
-            removeHCP: (id) => set((state) => ({ hcps: state.hcps.filter((h) => h.id !== id) })),
+        hcps: [],
+        addHCP: (h) => { set((state) => ({ hcps: [...state.hcps, h] })); emitUpsert('hcps', h); },
+        removeHCP: (id) => { set((state) => ({ hcps: state.hcps.filter((h) => h.id !== id) })); emitDelete('hcps', id); },
 
-            waterLogs: [],
-            addWaterLog: (w) => set((state) => ({ waterLogs: [...state.waterLogs, w] })),
-            removeWaterLog: (id) => set((state) => ({ waterLogs: state.waterLogs.filter((w) => w.id !== id) })),
-        }),
-        {
-            name: 'health-storage',
-            storage: createJSONStorage(() => AsyncStorage),
-            version: HEALTH_STORE_VERSION,
-            /**
-             * Runs when the saved data is older than HEALTH_STORE_VERSION.
-             * This is the safety net for future schema changes: it must never
-             * throw, because a failed migration would discard the whole health
-             * record. Missing arrays are restored so a new list added to the app
-             * can never crash a screen that maps over it.
-             */
-            migrate: (persisted: any, fromVersion: number) => {
-                const state = { ...(persisted || {}) };
-
-                const LISTS = [
-                    'symptoms', 'medications', 'measurements', 'diagnoses', 'moodLogs',
-                    'dietPlans', 'investigations', 'activities', 'sleepLogs', 'foodEntries',
-                    'documents', 'appointments', 'hcps', 'waterLogs',
-                ];
-
-                for (const key of LISTS) {
-                    if (!Array.isArray(state[key])) state[key] = [];
-                }
-
-                // v0 (no version field) -> v1: every record needs an id, because
-                // the assistant now corrects and deletes records by id.
-                if (fromVersion < 1) {
-                    for (const key of LISTS) {
-                        state[key] = state[key].map((record: any, index: number) => (
-                            record && typeof record === 'object' && !record.id
-                                ? { ...record, id: `${key}-${index}-${Date.now()}` }
-                                : record
-                        ));
-                    }
-                }
-
-                return state;
-            },
-        }
-    )
+        waterLogs: [],
+        addWaterLog: (w) => { set((state) => ({ waterLogs: [...state.waterLogs, w] })); emitUpsert('waterLogs', w); },
+        removeWaterLog: (id) => { set((state) => ({ waterLogs: state.waterLogs.filter((w) => w.id !== id) })); emitDelete('waterLogs', id); },
+    })
 );

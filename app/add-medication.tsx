@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Modal , KeyboardAvoidingView, Platform } from 'react-native';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -22,7 +22,7 @@ export default function AddMedicationScreen() {
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
     const tagColors = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', colors.textSecondary];
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { t } = useTranslation();
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -230,7 +230,7 @@ export default function AddMedicationScreen() {
 
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, !name.trim() && styles.buttonDisabled]} onPress={handleSubmit} disabled={!name.trim()}>
                     <Text style={styles.buttonText}>{id ? t('update') : t('save')}</Text>
                 </TouchableOpacity>

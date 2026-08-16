@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +13,7 @@ import { ptBR, enUS } from 'date-fns/locale';
 export default function AppointmentDetailsScreen() {
     const { colors } = useAppTheme();
     const insets = useSafeAreaInsets();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const params = useLocalSearchParams();
     const { t } = useTranslation();

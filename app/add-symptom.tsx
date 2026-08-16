@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView , KeyboardAvoidingView, Platform } from 'react-native';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -17,7 +17,7 @@ export default function AddSymptomScreen() {
     const insets = useSafeAreaInsets();
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { t } = useTranslation();
     const { language } = useThemeStore();
@@ -117,7 +117,7 @@ export default function AddSymptomScreen() {
                 <TextInput placeholderTextColor={colors.textSecondary} style={[styles.input, styles.textArea]} placeholder={t('notes_placeholder')} value={notes} onChangeText={setNotes} multiline textAlignVertical="top" />
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, !name.trim() && styles.buttonDisabled]} onPress={handleSubmit} disabled={!name.trim()}>
                     <Text style={styles.buttonText}>{id ? t('update') : t('save')}</Text>
                 </TouchableOpacity>

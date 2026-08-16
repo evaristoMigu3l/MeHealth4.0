@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList , KeyboardAvoidingView, Platform } from 'react-native';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -18,7 +18,7 @@ export default function AddDiagnosisScreen() {
     const insets = useSafeAreaInsets();
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { t } = useTranslation();
@@ -111,7 +111,7 @@ export default function AddDiagnosisScreen() {
                 </TouchableOpacity>
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, !condition.trim() && styles.buttonDisabled]} onPress={handleSubmit} disabled={!condition.trim()}>
                     <Text style={styles.buttonText}>{id ? t('update') : t('save')}</Text>
                 </TouchableOpacity>
@@ -171,7 +171,7 @@ export default function AddDiagnosisScreen() {
                         contentContainerStyle={styles.listContent}
                         ListEmptyComponent={<Text style={styles.emptyText}>{t('no_appointments_found')}</Text>}
                     />
-                    <View style={styles.footer}>
+                    <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                         <TouchableOpacity style={styles.button} onPress={() => setShowLinkModal(false)}>
                             <Text style={styles.buttonText}>{t('save')}</Text>
                         </TouchableOpacity>

@@ -243,7 +243,7 @@ function tokenizeCode(source: string): CodeToken[] {
 /* ---------------------------------------------------------------- component */
 
 export default function MarkdownText({ text, colors, color, size = 15, accent = true }: Props) {
-    const styles = getStyles(colors, color, size, accent);
+    const styles = useMemo(() => getStyles(colors, color, size, accent), [colors, color, size, accent]);
     const blocks = useMemo(() => parseBlocks(text || ''), [text]);
     const accentColor = accent ? colors.primary : (color || colors.text);
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,7 @@ export default function AddWaterScreen() {
     const insets = useSafeAreaInsets();
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { t } = useTranslation();
     const { addWaterLog } = useHealthStore();
@@ -82,7 +82,7 @@ export default function AddWaterScreen() {
 
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, (!amountStr || parseFloat(amountStr.replace(',', '.')) <= 0) && styles.buttonDisabled]} onPress={handleSubmit} disabled={!amountStr || parseFloat(amountStr.replace(',', '.')) <= 0}>
                     <Text style={styles.buttonText}>{t('save')}</Text>
                 </TouchableOpacity>

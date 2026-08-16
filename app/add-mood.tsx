@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Modal , KeyboardAvoidingView, Platform } from 'react-native';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -16,7 +16,7 @@ export default function AddMoodScreen() {
     const insets = useSafeAreaInsets();
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const { t } = useTranslation();
 
     const moods: { label: MoodLog['feeling']; emoji: string; color: string }[] = [
@@ -138,7 +138,7 @@ export default function AddMoodScreen() {
                 <TextInput placeholderTextColor={colors.textSecondary} style={[styles.input, styles.textArea]} placeholder={t('whats_on_mind') || "What's on your mind?"} value={notes} onChangeText={setNotes} multiline textAlignVertical="top" />
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, !(selectedMood || customMood.trim()) && styles.buttonDisabled]} onPress={handleSubmit} disabled={!(selectedMood || customMood.trim())}>
                     <Text style={styles.buttonText}>{id ? t('update_mood') || 'Update Mood' : t('save_mood') || 'Save Mood'}</Text>
                 </TouchableOpacity>

@@ -15,7 +15,7 @@ export default function ActivityLogScreen() {
 
     const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { t } = useTranslation();
     const { language } = useThemeStore();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal , KeyboardAvoidingView, Platform } from 'react-native';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -16,7 +16,7 @@ export default function AddMeasurementScreen() {
     const insets = useSafeAreaInsets();
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { t } = useTranslation();
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -120,7 +120,7 @@ export default function AddMeasurementScreen() {
                 </TouchableOpacity>
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, !reading.trim() && styles.buttonDisabled]} onPress={handleSubmit} disabled={!reading.trim()}>
                     <Text style={styles.buttonText}>{id ? t('update') : t('save')}</Text>
                 </TouchableOpacity>

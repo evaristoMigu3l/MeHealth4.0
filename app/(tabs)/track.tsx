@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +10,7 @@ export default function TrackScreen() {
 
     const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { t } = useTranslation();
 

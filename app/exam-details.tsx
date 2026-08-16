@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import { useTranslation } from '../hooks/useTranslation';
 import { useThemeStore } from '../stores/useThemeStore';
 import { ptBR, enUS } from 'date-fns/locale';
+import { isSupabaseStorageUri, downloadToLocal, resolveStorageUri } from '../utils/supabase/storageService';
 
 /**
  * AttachmentCard checks if the file still exists on disk before rendering.
@@ -27,11 +28,25 @@ function AttachmentCard({ uri, colors, styles, t, onOpen }: {
     onOpen: (uri: string) => void;
 }) {
     const [fileExists, setFileExists] = useState<boolean | null>(null); // null = loading
+    // For cloud (supabase://) images we need a signed URL to render.
+    const [displayUri, setDisplayUri] = useState<string>(uri);
 
     useEffect(() => {
         let mounted = true;
         (async () => {
             try {
+                // Cloud reference: always "exists" (it lives in Supabase).
+                // Resolve a signed URL so <Image> can render it.
+                if (isSupabaseStorageUri(uri)) {
+                    if (mounted) setFileExists(true);
+                    try {
+                        const signed = await resolveStorageUri(uri);
+                        if (mounted) setDisplayUri(signed);
+                    } catch {
+                        // Keep the raw ref; image just won't preview.
+                    }
+                    return;
+                }
                 // content:// URIs can't be checked with getInfoAsync, assume they exist
                 if (uri.startsWith('content://')) {
                     if (mounted) setFileExists(true);
@@ -80,7 +95,7 @@ function AttachmentCard({ uri, colors, styles, t, onOpen }: {
     return (
         <View style={styles.attachmentCard}>
             {isImage ? (
-                <Image source={{ uri }} style={styles.attachmentImage} resizeMode="cover" />
+                <Image source={{ uri: displayUri }} style={styles.attachmentImage} resizeMode="cover" />
             ) : (
                 <View style={styles.fileIconContainer}>
                     <Ionicons name="document-text" size={32} color={colors.textSecondary} />
@@ -101,7 +116,7 @@ export default function ExamDetailsScreen() {
 
     const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const params = useLocalSearchParams();
     const { t } = useTranslation();
@@ -128,11 +143,23 @@ export default function ExamDetailsScreen() {
 
     const handleOpenFile = async (uri: string) => {
         try {
+            // Cloud reference: download into the persistent document
+            // directory first, then open the local copy.
+            let localUri = uri;
+            if (isSupabaseStorageUri(uri)) {
+                try {
+                    localUri = await downloadToLocal(uri, `${FileSystem.documentDirectory}exam-attachments/`);
+                } catch (e) {
+                    Alert.alert(t('file_unavailable'), t('file_unavailable_desc'));
+                    return;
+                }
+            }
+
             // Pre-check: verify the file still exists before attempting to open it.
             // getContentUriAsync crashes with a Java IOException if the parent
             // directory was deleted (e.g., Android cleared the cache).
-            if (!uri.startsWith('content://')) {
-                const fileInfo = await FileSystem.getInfoAsync(uri);
+            if (!localUri.startsWith('content://')) {
+                const fileInfo = await FileSystem.getInfoAsync(localUri);
                 if (!fileInfo.exists) {
                     Alert.alert(
                         t('file_unavailable'),
@@ -143,7 +170,7 @@ export default function ExamDetailsScreen() {
             }
 
             if (Platform.OS === 'android') {
-                const extension = uri.split('.').pop()?.toLowerCase();
+                const extension = localUri.split('.').pop()?.toLowerCase();
                 let mimeType = '*/*';
                 if (extension === 'pdf') mimeType = 'application/pdf';
                 else if (['jpg', 'jpeg', 'png'].includes(extension || '')) mimeType = 'image/*';
@@ -151,9 +178,9 @@ export default function ExamDetailsScreen() {
 
                 // If it's already a content URI, use it directly (common from document picker)
                 // Otherwise convert file URI to content URI
-                const contentUri = uri.startsWith('content://')
-                    ? uri
-                    : await FileSystem.getContentUriAsync(uri);
+                const contentUri = localUri.startsWith('content://')
+                    ? localUri
+                    : await FileSystem.getContentUriAsync(localUri);
 
                 await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
                     data: contentUri,
@@ -165,7 +192,7 @@ export default function ExamDetailsScreen() {
                     Alert.alert(t('error'), t('file_unavailable_desc'));
                     return;
                 }
-                await Sharing.shareAsync(uri);
+                await Sharing.shareAsync(localUri);
             }
         } catch (e: any) {
             console.log('File open error:', e);

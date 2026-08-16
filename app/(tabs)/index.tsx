@@ -15,7 +15,7 @@ export default function HomeScreen() {
 
     const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { profile, updateStreak, gamification } = useUserStore();
     const { t } = useTranslation();

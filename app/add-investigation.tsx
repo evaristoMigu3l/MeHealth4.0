@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, FlatList, Alert , KeyboardAvoidingView, Platform } from 'react-native';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -14,6 +14,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useTranslation } from '../hooks/useTranslation';
 import { useThemeStore } from '../stores/useThemeStore';
 import { ptBR, enUS } from 'date-fns/locale';
+import { uploadExamAttachment, isSupabaseStorageUri } from '../utils/supabase/storageService';
+import { useCloudStore } from '../stores/useCloudStore';
 
 // Persistent directory for exam attachments (survives cache clears)
 const ATTACHMENTS_DIR = `${FileSystem.documentDirectory}exam-attachments/`;
@@ -23,7 +25,7 @@ export default function AddInvestigationScreen() {
     const insets = useSafeAreaInsets();
     const keyboardHeight = useKeyboardHeight();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const params = useLocalSearchParams();
     const { t } = useTranslation();
@@ -107,26 +109,57 @@ export default function AddInvestigationScreen() {
         setAttachments(newAttachments);
     };
 
-    const handleSubmit = () => {
-        if (!type.trim()) return;
+    const [submitting, setSubmitting] = useState(false);
 
-        const examData: Investigation = {
-            id: isEditing ? (params.id as string) : Date.now().toString(),
-            type,
-            dateTime: date.toISOString(),
-            result,
-            status,
-            notes,
-            linkedAppointmentId,
-            attachments,
-        };
+    const handleSubmit = async () => {
+        if (!type.trim() || submitting) return;
+        setSubmitting(true);
 
-        if (isEditing) {
-            updateInvestigation(examData as Investigation);
-        } else {
-            addInvestigation(examData);
+        try {
+            const examId = isEditing ? (params.id as string) : Date.now().toString();
+
+            // Upload any local attachments to Supabase Storage so they
+            // survive a device change. Already-uploaded (supabase://)
+            // references pass through untouched.
+            const userId = useCloudStore.getState().userId;
+            let finalAttachments = attachments;
+            if (userId && attachments.some((a) => !isSupabaseStorageUri(a))) {
+                const uploaded: string[] = [];
+                for (const att of attachments) {
+                    if (isSupabaseStorageUri(att)) {
+                        uploaded.push(att);
+                    } else {
+                        try {
+                            uploaded.push(await uploadExamAttachment(userId, examId, att));
+                        } catch (err) {
+                            console.warn('[investigation] attachment upload failed, keeping local ref:', err);
+                            uploaded.push(att); // keep local copy rather than lose the reference
+                        }
+                    }
+                }
+                finalAttachments = uploaded;
+            }
+
+            const examData: Investigation = {
+                id: examId,
+                type,
+                dateTime: date.toISOString(),
+                result,
+                status,
+                notes,
+                linkedAppointmentId,
+                attachments: finalAttachments,
+            };
+
+            if (isEditing) {
+                updateInvestigation(examData as Investigation);
+            } else {
+                addInvestigation(examData);
+            }
+            router.back();
+        } finally {
+            setSubmitting(false);
         }
-        router.back();
     };
 
     return (
@@ -199,7 +232,7 @@ export default function AddInvestigationScreen() {
                 )}
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
                 <TouchableOpacity style={[styles.button, !type.trim() && styles.buttonDisabled]} onPress={handleSubmit} disabled={!type.trim()}>
                     <Text style={styles.buttonText}>{isEditing ? t('update') : t('save')}</Text>
                 </TouchableOpacity>

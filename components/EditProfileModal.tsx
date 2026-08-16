@@ -1,4 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, ScrollView, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
+import { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, ScrollView, Keyboard } from 'react-native';
+import { useKeyboardLayout } from '../hooks/useKeyboardLayout';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useTranslation } from '../hooks/useTranslation';
@@ -23,8 +25,9 @@ interface EditProfileModalProps {
 
 export default function EditProfileModal({ visible, onClose, form, onChange, onSave }: EditProfileModalProps) {
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const { t } = useTranslation();
+    const { keyboardOffset, isKeyboardVisible } = useKeyboardLayout();
 
     const handleClose = () => {
         Keyboard.dismiss();
@@ -45,7 +48,7 @@ export default function EditProfileModal({ visible, onClose, form, onChange, onS
             hardwareAccelerated
             onRequestClose={onClose}
         >
-            <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+            <View style={[styles.overlay, { paddingBottom: isKeyboardVisible ? keyboardOffset : 0 }]}>
                 <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
                     <View style={styles.header}>
                         <Text style={[styles.title, { color: colors.text }]}>{t('edit_profile')}</Text>
@@ -105,7 +108,7 @@ export default function EditProfileModal({ visible, onClose, form, onChange, onS
                             <View style={{ height: 16 }} />
                         </ScrollView>
                 </View>
-            </KeyboardAvoidingView>
+            </View>
         </Modal>
     );
 }

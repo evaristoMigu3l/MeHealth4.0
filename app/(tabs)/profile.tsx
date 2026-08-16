@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Switch, Alert, Modal } from 'react-native';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,10 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import LockScreen from '../../components/LockScreen';
 import EditProfileModal, { EditProfileForm } from '../../components/EditProfileModal';
 import { useTranslation } from '../../hooks/useTranslation';
+import { signOutAndReset } from '../../utils/supabase/syncEngine';
+import { uploadAvatar } from '../../utils/supabase/storageService';
+import { useCloudStore } from '../../stores/useCloudStore';
+import { useResolvedUri } from '../../hooks/useResolvedUri';
 
 // PIN step: null = not setting up, 'setup' = modal is open
 type PinStep = null | 'setup';
@@ -19,10 +23,10 @@ export default function ProfileScreen() {
 
     const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { t } = useTranslation();
-    const { profile, setProfile, clearProfile } = useUserStore();
+    const { profile, setProfile } = useUserStore();
     const { hasPin, biometricEnabled, setBiometricEnabled, clearPin, setIsLocked } = useAuthStore();
 
     // ── All hooks at the top, NO hooks after conditional returns ──
@@ -32,6 +36,8 @@ export default function ProfileScreen() {
     const [editForm, setEditForm] = useState<EditProfileForm>({
         name: '', email: '', dob: '', gender: 'Other', ethnicity: ''
     });
+    // Resolves supabase:// avatar references to signed URLs for display.
+    const resolvedAvatarUri = useResolvedUri(profile?.avatarUri);
 
     useEffect(() => {
         LocalAuthentication.hasHardwareAsync().then(setHasBiometric);
@@ -56,7 +62,25 @@ export default function ProfileScreen() {
             quality: 0.8,
         });
         if (!result.canceled && result.assets[0]) {
-            setProfile({ ...profile!, avatarUri: result.assets[0].uri });
+            const localUri = result.assets[0].uri;
+            // Show the picked image immediately (instant UI), then upload
+            // it to Supabase Storage and swap in the portable reference.
+            setProfile({ ...profile!, avatarUri: localUri });
+
+            const userId = useCloudStore.getState().userId;
+            if (userId) {
+                try {
+                    const storageRef = await uploadAvatar(userId, localUri);
+                    // Re-read the latest profile in case it changed mid-upload.
+                    const latest = useUserStore.getState().profile;
+                    if (latest && latest.avatarUri === localUri) {
+                        useUserStore.getState().setProfile({ ...latest, avatarUri: storageRef });
+                    }
+                } catch (err) {
+                    console.warn('[profile] avatar upload failed, keeping local copy:', err);
+                    Alert.alert(t('file_unavailable'), 'Avatar upload failed. It will be retried on your next sync.');
+                }
+            }
         }
     }
 
@@ -73,9 +97,15 @@ export default function ProfileScreen() {
     }
 
     function handleLogout() {
-        Alert.alert(t('log_out_confirm'), '', [
+        Alert.alert(t('log_out'), t('sign_out_confirm'), [
             { text: t('cancel'), style: 'cancel' },
-            { text: t('log_out'), style: 'destructive', onPress: () => { clearProfile(); router.replace('/onboarding'); } }
+            {
+                text: t('log_out'), style: 'destructive',
+                // Cloud sign-out: clears the Supabase session and local
+                // user data. The auth gate in the root layout redirects
+                // to the sign-in screen automatically.
+                onPress: () => { void signOutAndReset(); }
+            }
         ]);
     }
 
@@ -92,8 +122,8 @@ export default function ProfileScreen() {
                 {/* Profile Header */}
                 <View style={styles.profileHeader}>
                     <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
-                        {profile?.avatarUri ? (
-                            <Image source={{ uri: profile.avatarUri }} style={styles.avatarImg} />
+                        {resolvedAvatarUri ? (
+                            <Image source={{ uri: resolvedAvatarUri }} style={styles.avatarImg} />
                         ) : (
                             <View style={styles.avatarPlaceholder}>
                                 <Ionicons name="person" size={44} color={colors.textSecondary} />

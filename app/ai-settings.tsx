@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useAppTheme } from '../hooks/useAppTheme';
+import SecureTextField from '../components/ui/SecureTextField';
 import { useKeyboardOffset } from '../hooks/useKeyboardOffset';
 import { useAiStore } from '../stores/useAiStore';
 import { clearApiKey, getApiKey, hasApiKey, setApiKey } from '../utils/ai/secrets';
@@ -25,7 +26,7 @@ import { ZenModel } from '../utils/ai/types';
 export default function AiSettingsScreen() {
     const insets = useSafeAreaInsets();
     const { colors } = useAppTheme();
-    const styles = getStyles(colors);
+    const styles = useMemo(() => getStyles(colors), [colors]);
     const router = useRouter();
     const { keyboardOffset, isKeyboardVisible } = useKeyboardOffset();
 
@@ -228,15 +229,14 @@ export default function AiSettingsScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>API key</Text>
                     <View style={styles.inputRow}>
-                        <TextInput
-                            style={styles.input}
+                        <SecureTextField
+                            inputStyle={styles.input}
                             value={keyInput}
                             onChangeText={setKeyInput}
                             placeholder="Paste your OpenCode Zen key"
                             placeholderTextColor={colors.textSecondary}
                             secureTextEntry={!showKey}
-                            autoCapitalize="none"
-                            autoCorrect={false}
+                            showToggle={false}
                         />
                         <TouchableOpacity style={styles.eyeButton} onPress={() => setShowKey((v) => !v)}>
                             <Ionicons name={showKey ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
@@ -334,15 +334,14 @@ export default function AiSettingsScreen() {
 
                     <Text style={styles.label}>Gemini API key</Text>
                     <View style={styles.inputRow}>
-                        <TextInput
-                            style={styles.input}
+                        <SecureTextField
+                            inputStyle={styles.input}
                             value={geminiKeyInput}
                             onChangeText={setGeminiKeyInput}
                             placeholder="Paste your Google AI Studio key"
                             placeholderTextColor={colors.textSecondary}
                             secureTextEntry={!showGeminiKey}
-                            autoCapitalize="none"
-                            autoCorrect={false}
+                            showToggle={false}
                         />
                         <TouchableOpacity style={styles.eyeButton} onPress={() => setShowGeminiKey((v) => !v)}>
                             <Ionicons name={showGeminiKey ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
@@ -605,15 +604,14 @@ export default function AiSettingsScreen() {
                         <>
                             <Text style={styles.label}>{providerInfo.label} API key</Text>
                             <View style={styles.inputRow}>
-                                <TextInput
-                                    style={styles.input}
+                                <SecureTextField
+                                    inputStyle={styles.input}
                                     value={searchKeyInput}
                                     onChangeText={setSearchKeyInput}
                                     placeholder="Paste the search API key"
                                     placeholderTextColor={colors.textSecondary}
                                     secureTextEntry={!showSearchKey}
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
+                                    showToggle={false}
                                 />
                                 <TouchableOpacity style={styles.eyeButton} onPress={() => setShowSearchKey(!showSearchKey)}>
                                     <Ionicons name={showSearchKey ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
