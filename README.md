@@ -43,6 +43,8 @@ A comprehensive, private, offline-first personal health tracking application bui
    ```bash
    npx expo start
    ```
+   downloafd the apk : https://drive.google.com/file/d/1teKXq0mMbE_t91de738cr0OwnRwkYugU/view?usp=sharing
+   
 
 ## License
 
